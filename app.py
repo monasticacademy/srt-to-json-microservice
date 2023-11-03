@@ -84,8 +84,8 @@ def parse_srt(srt_string):
                 end_time = parse_time(end_time_string)
 
                 # Ensure that the start time is before the end time
-                if start_time >= end_time:
-                    raise ValueError(f"Start time must be less than end time in block: {block}")
+                if start_time > end_time:
+                    raise ValueError(f"Start time must be less than or equal to end time in block: {block}")
 
                 # The remaining lines are the subtitle content
                 content = '\n'.join(lines[2:]).strip()
