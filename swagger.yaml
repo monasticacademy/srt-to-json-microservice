@@ -1,0 +1,42 @@
+swagger: "2.0"
+info:
+  description: "API for parsing SRT (SubRip Text) files into JSON format."
+  version: "1.0.0"
+  title: "SRT Parser API"
+host: "localhost:8080"
+basePath: "/"
+tags:
+- name: "SRT Parsing"
+  description: "Parsing SRT files to JSON"
+schemes:
+- "http"
+paths:
+  /parse_srt:
+    post:
+      tags:
+      - "SRT Parsing"
+      summary: "Parse SRT content"
+      description: "Parses the content of an SRT file and returns JSON."
+      consumes:
+      - "text/plain"
+      produces:
+      - "application/json"
+      parameters:
+      - in: "header"
+        name: "X-API-KEY"
+        description: "API key for accessing the service"
+        required: true
+        type: "string"
+      - in: "body"
+        name: "body"
+        description: "SRT text content to be parsed"
+        required: true
+        schema:
+          type: "string"
+      responses:
+        200:
+          description: "Successful operation"
+        400:
+          description: "Invalid input"
+        401:
+          description: "Unauthorized"
