@@ -47,13 +47,13 @@ def parse_time(time_string):
 def parse_srt(srt_string):
     """
     Parses SRT formatted string into a list of subtitle dictionaries.
-    
+
     Args:
         srt_string (str): The SRT file content.
-    
+
     Returns:
         list: A list of dictionaries with subtitle data.
-    
+
     Raises:
         ValueError: If the SRT string is empty or incorrectly formatted.
     """
@@ -65,21 +65,30 @@ def parse_srt(srt_string):
         raise ValueError("The SRT text provided is empty.")
 
     # Split the SRT string into parts and iterate over each subtitle block
-    for line in srt_string.split('\n\n'):
-        if line:
+    for block in srt_string.split('\n\n'):
+        if block.strip():  # Ignore empty blocks
             try:
-                # Parse the subtitle index, start time, and end time using regex
-                index = int(re.match(r'\d+', line).group())
-                pos = re.search(r'\d+:\d+:\d+,\d+ --> \d+:\d+:\d+,\d+', line).end() + 1
-                content = line[pos:].strip()
-                start_time_string = re.findall(r'(\d+:\d+:\d+,\d+) --> \d+:\d+:\d+,\d+', line)[0]
-                end_time_string = re.findall(r'\d+:\d+:\d+,\d+ --> (\d+:\d+:\d+,\d+)', line)[0]
+                # Split each block into lines
+                lines = block.split('\n')
+                # The first line should be the index
+                index = int(lines[0])
+                # The second line should be the timings
+                timing_line = lines[1]
+                timing_match = re.search(r'(\d+:\d+:\d+,\d+) --> (\d+:\d+:\d+,\d+)', timing_line)
+                if not timing_match:
+                    raise ValueError(f"Invalid timing format in block: {block}")
+
+                # Extract start and end times from the timing line
+                start_time_string, end_time_string = timing_match.groups()
                 start_time = parse_time(start_time_string)
                 end_time = parse_time(end_time_string)
 
                 # Ensure that the start time is before the end time
                 if start_time >= end_time:
-                    raise ValueError("Start time must be less than end time.")
+                    raise ValueError(f"Start time must be less than end time in block: {block}")
+
+                # The remaining lines are the subtitle content
+                content = '\n'.join(lines[2:]).strip()
 
                 # Append the parsed subtitle to the list
                 srt_list.append({
@@ -88,9 +97,13 @@ def parse_srt(srt_string):
                     'start': start_time,
                     'end': end_time
                 })
-            except (IndexError, ValueError) as e:
-                # If any error occurs during parsing, raise a ValueError
-                raise ValueError(f"Error parsing SRT: {e}")
+            except Exception as e:
+                # Log the exception details and the problematic block for easier debugging
+                # Note: You would typically use a logging library here instead of print
+                print(f"Error parsing block: {block}\nException: {e}")
+                # Optionally, you could continue parsing the remaining blocks instead of raising an error
+                # For now, we'll raise the error to signal that something went wrong
+                raise ValueError(f"Error parsing SRT block: {e}")
     return srt_list
 
 def check_api_key(request):
