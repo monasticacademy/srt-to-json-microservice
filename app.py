@@ -44,15 +44,50 @@ def parse_time(time_string):
         # If parsing fails, raise an error with a clear explanation
         raise ValueError("Time string is in an incorrect format.") from e
 
-def parse_srt(srt_string):
+def combine_captions(srt_list, char_limit=None, millis_limit=None):
     """
-    Parses SRT formatted string into a list of subtitle dictionaries.
+    Combines captions based on character count or milliseconds limits.
+
+    Args:
+        srt_list (list): List of parsed subtitles.
+        char_limit (int, optional): Character count limit for combining captions.
+        millis_limit (int, optional): Milliseconds limit for combining captions.
+
+    Returns:
+        list: A list of combined subtitle dictionaries.
+    """
+    combined_list = []
+    current_caption = ""
+    start_time = 0
+    for caption in srt_list:
+        if not current_caption:
+            current_caption = caption['content']
+            start_time = caption['start']
+        else:
+            new_caption = current_caption + " " + caption['content']
+            if ((char_limit is not None and len(new_caption) <= char_limit) or
+                (millis_limit is not None and caption['end'] - start_time <= millis_limit)):
+                current_caption = new_caption
+            else:
+                combined_list.append({'content': current_caption, 'start': start_time, 'end': caption['start']})
+                current_caption = caption['content']
+                start_time = caption['start']
+    if current_caption:
+        combined_list.append({'content': current_caption, 'start': start_time, 'end': srt_list[-1]['end']})
+    return combined_list
+
+def parse_srt(srt_string, char_limit=None, millis_limit=None):
+    """
+    Parses SRT formatted string into a list of subtitle dictionaries, 
+    combining subtitles based on optional character count or milliseconds limits.
 
     Args:
         srt_string (str): The SRT file content.
+        char_limit (int, optional): Maximum number of characters for a combined caption.
+        millis_limit (int, optional): Maximum duration in milliseconds for a combined caption.
 
     Returns:
-        list: A list of dictionaries with subtitle data.
+        list: A list of dictionaries with combined subtitle data.
 
     Raises:
         ValueError: If the SRT string is empty or incorrectly formatted.
@@ -100,11 +135,14 @@ def parse_srt(srt_string):
             except Exception as e:
                 # Log the exception details and the problematic block for easier debugging
                 # Note: You would typically use a logging library here instead of print
-                print(f"Error parsing block: {block}\nException: {e}")
+                logging.error(f"Error parsing block: {block}\nException: {e}")
                 # Optionally, you could continue parsing the remaining blocks instead of raising an error
                 # For now, we'll raise the error to signal that something went wrong
                 raise ValueError(f"Error parsing SRT block: {e}")
-    return srt_list
+
+    # Combine the subtitles based on the specified character or milliseconds limits
+    return combine_captions(srt_list, char_limit, millis_limit)
+
 
 def check_api_key(request):
     """
@@ -134,9 +172,13 @@ def parse_srt_endpoint():
     # Decode the request data from bytes to a string
     srt_data = request.data.decode('utf-8')
 
-    # Attempt to parse the SRT data and return the result as JSON
+    # Retrieve optional character and milliseconds limits from the request, if provided
+    char_limit = request.args.get('char_limit', default=None, type=int)
+    millis_limit = request.args.get('millis_limit', default=None, type=int)
+
+    # Attempt to parse the SRT data with the provided limits and return the result as JSON
     try:
-        parsed_srt = parse_srt(srt_data)
+        parsed_srt = parse_srt(srt_data, char_limit=char_limit, millis_limit=millis_limit)
         return jsonify(parsed_srt)
     except ValueError as e:
         # If parsing fails, return a 400 Bad Request error with the error message
