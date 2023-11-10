@@ -6,7 +6,7 @@ The SRT Parser API is a web service that accepts SubRip Text (SRT) format data a
 ## API Call and Response Example
 
 ### Request:
-To parse SRT content, send a POST request to `/parse_srt` with the SRT file content as plain text in the body of the request. You must include an `X-API-KEY` in the header for authentication.
+To parse SRT content, send a POST request to `/parse_srt` with the SRT file content as plain text in the body of the request. You can optionally include `char_limit` and `millis_limit` as query parameters to combine captions based on character count or milliseconds. You must include an `X-API-KEY` in the header for authentication.
 
 Example using `curl`:
 ```
@@ -17,7 +17,7 @@ curl -X POST http://<cloud_run_url>/parse_srt \
 ```
 
 ### Response:
-The response will be a JSON array of subtitle entries, each containing the index, content, and start/end timings in milliseconds.
+The response will be a JSON array of subtitle entries, potentially combined based on the specified limits. Each entry contains the content and start/end timings in milliseconds.
 
 Example response:
 ```json
