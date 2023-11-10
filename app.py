@@ -44,7 +44,7 @@ def parse_time(time_string):
         # If parsing fails, raise an error with a clear explanation
         raise ValueError("Time string is in an incorrect format.") from e
 
-ddef combine_captions(srt_list, char_limit=None, millis_limit=None):
+def combine_captions(srt_list, char_limit=None, millis_limit=None):
     """
     Combines captions based on character count or milliseconds limits,
     skipping empty subtitles to avoid extra spaces.
