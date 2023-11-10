@@ -44,10 +44,10 @@ def parse_time(time_string):
         # If parsing fails, raise an error with a clear explanation
         raise ValueError("Time string is in an incorrect format.") from e
 
-def combine_captions(srt_list, char_limit=None, millis_limit=None):
+ddef combine_captions(srt_list, char_limit=None, millis_limit=None):
     """
-    Combines captions based on character count or milliseconds limits.
-    Ensures that there are no multiple spaces between combined captions.
+    Combines captions based on character count or milliseconds limits,
+    skipping empty subtitles to avoid extra spaces.
 
     Args:
         srt_list (list): List of parsed subtitles.
@@ -62,7 +62,10 @@ def combine_captions(srt_list, char_limit=None, millis_limit=None):
     start_time = 0
 
     for caption in srt_list:
-        trimmed_content = caption['content'].strip()  # Trim leading/trailing spaces
+        trimmed_content = caption['content'].strip()
+        if not trimmed_content:  # Skip empty subtitles
+            continue
+
         if not current_caption:
             current_caption = trimmed_content
             start_time = caption['start']
