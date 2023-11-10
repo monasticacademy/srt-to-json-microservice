@@ -47,6 +47,7 @@ def parse_time(time_string):
 def combine_captions(srt_list, char_limit=None, millis_limit=None):
     """
     Combines captions based on character count or milliseconds limits.
+    Ensures that there are no multiple spaces between combined captions.
 
     Args:
         srt_list (list): List of parsed subtitles.
@@ -59,21 +60,25 @@ def combine_captions(srt_list, char_limit=None, millis_limit=None):
     combined_list = []
     current_caption = ""
     start_time = 0
+
     for caption in srt_list:
+        trimmed_content = caption['content'].strip()  # Trim leading/trailing spaces
         if not current_caption:
-            current_caption = caption['content']
+            current_caption = trimmed_content
             start_time = caption['start']
         else:
-            new_caption = current_caption + " " + caption['content']
+            new_caption = f"{current_caption} {trimmed_content}"
             if ((char_limit is not None and len(new_caption) <= char_limit) or
                 (millis_limit is not None and caption['end'] - start_time <= millis_limit)):
                 current_caption = new_caption
             else:
                 combined_list.append({'content': current_caption, 'start': start_time, 'end': caption['start']})
-                current_caption = caption['content']
+                current_caption = trimmed_content
                 start_time = caption['start']
+
     if current_caption:
         combined_list.append({'content': current_caption, 'start': start_time, 'end': srt_list[-1]['end']})
+
     return combined_list
 
 def parse_srt(srt_string, char_limit=None, millis_limit=None):
