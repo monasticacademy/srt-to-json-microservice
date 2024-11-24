@@ -177,20 +177,35 @@ def parse_srt_endpoint():
     # Check if the API key is correct before processing the request
     check_api_key(request)
 
-    # Decode the request data from bytes to a string
-    srt_data = request.data.decode('utf-8')
+    # Log the raw request data and content type
+    app.logger.debug(f"Request Content-Type: {request.content_type}")
+    app.logger.debug(f"Raw request data: {request.data}")
 
-    # Retrieve optional character and milliseconds limits from the request, if provided
-    char_limit = request.args.get('char_limit', default=None, type=int)
-    millis_limit = request.args.get('millis_limit', default=None, type=int)
-
-    # Attempt to parse the SRT data with the provided limits and return the result as JSON
     try:
+        # Decode the request data from bytes to a string
+        srt_data = request.data.decode('utf-8')
+        app.logger.debug(f"Decoded SRT data: {srt_data}")
+
+        # If the content type is application/json, try to extract the SRT data from the JSON
+        if request.content_type == 'application/json':
+            json_data = request.get_json()
+            srt_data = json_data.get('srt_content', '')
+            app.logger.debug(f"Extracted SRT data from JSON: {srt_data}")
+
+        # Retrieve optional character and milliseconds limits from the request
+        char_limit = request.args.get('char_limit', default=None, type=int)
+        millis_limit = request.args.get('millis_limit', default=None, type=int)
+
+        # Attempt to parse the SRT data with the provided limits
         parsed_srt = parse_srt(srt_data, char_limit=char_limit, millis_limit=millis_limit)
         return jsonify(parsed_srt)
     except ValueError as e:
         # If parsing fails, return a 400 Bad Request error with the error message
         abort(400, description=str(e))
+    except Exception as e:
+        # Log unexpected errors
+        app.logger.error(f"Unexpected error: {str(e)}")
+        abort(500, description="Internal server error occurred while processing the request")
 
 @app.after_request
 def after_request(response):
