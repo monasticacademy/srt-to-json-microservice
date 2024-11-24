@@ -12,8 +12,12 @@ app = Flask(__name__)
 # Setup Swagger automatically from the YAML file
 Swagger(app)
 
-# Setup logging to output to stderr, with the INFO verbosity level.
-logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+# Setup logging to output to stderr, with the DEBUG verbosity level.
+logging.basicConfig(
+    stream=sys.stderr,
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 # Retrieve the expected API Key from an environment variable
 API_KEY = os.environ.get('API_KEY')
@@ -172,25 +176,33 @@ def check_api_key(request):
 def parse_srt_endpoint():
     """
     API endpoint to parse SRT content.
-    This uses the `flasgger` library to generate Swagger documentation automatically.
     """
     # Check if the API key is correct before processing the request
     check_api_key(request)
 
-    # Log the raw request data and content type
+    # Log complete request details
+    app.logger.debug(f"Request Headers: {dict(request.headers)}")
     app.logger.debug(f"Request Content-Type: {request.content_type}")
-    app.logger.debug(f"Raw request data: {request.data}")
+    app.logger.debug(f"Request Form Data: {request.form}")
+    app.logger.debug(f"Request Raw Data: {request.get_data()}")
 
     try:
-        # Decode the request data from bytes to a string
-        srt_data = request.data.decode('utf-8')
-        app.logger.debug(f"Decoded SRT data: {srt_data}")
-
-        # If the content type is application/json, try to extract the SRT data from the JSON
+        srt_data = None
+        
+        # Check different possible request formats
         if request.content_type == 'application/json':
-            json_data = request.get_json()
-            srt_data = json_data.get('srt_content', '')
-            app.logger.debug(f"Extracted SRT data from JSON: {srt_data}")
+            json_data = request.get_json(silent=True)
+            if json_data:
+                srt_data = json_data.get('srt_content')
+        elif request.form:
+            srt_data = request.form.get('srt_content')
+        else:
+            srt_data = request.get_data(as_text=True)
+
+        app.logger.debug(f"Processed SRT Data: {srt_data}")
+
+        if not srt_data:
+            raise ValueError("No SRT content found in request. Please send the SRT content either as raw text, form data with 'srt_content' field, or JSON with 'srt_content' field.")
 
         # Retrieve optional character and milliseconds limits from the request
         char_limit = request.args.get('char_limit', default=None, type=int)
@@ -200,10 +212,9 @@ def parse_srt_endpoint():
         parsed_srt = parse_srt(srt_data, char_limit=char_limit, millis_limit=millis_limit)
         return jsonify(parsed_srt)
     except ValueError as e:
-        # If parsing fails, return a 400 Bad Request error with the error message
+        app.logger.error(f"ValueError: {str(e)}")
         abort(400, description=str(e))
     except Exception as e:
-        # Log unexpected errors
         app.logger.error(f"Unexpected error: {str(e)}")
         abort(500, description="Internal server error occurred while processing the request")
 
