@@ -202,7 +202,8 @@ def parse_srt_endpoint():
         app.logger.debug(f"Processed SRT Data: {srt_data}")
 
         if not srt_data:
-            raise ValueError("No SRT content found in request. Please send the SRT content either as raw text, form data with 'srt_content' field, or JSON with 'srt_content' field.")
+            preview = request.get_data(as_text=True)[:200] if request.get_data(as_text=True) else "[empty]"
+            raise ValueError(f"No SRT content found in request. Please send the SRT content either as raw text, form data with 'srt_content' field, or JSON with 'srt_content' field. Received: {preview}...")
 
         # Retrieve optional character and milliseconds limits from the request
         char_limit = request.args.get('char_limit', default=None, type=int)
