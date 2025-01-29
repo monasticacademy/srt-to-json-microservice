@@ -90,11 +90,11 @@ def combine_captions(srt_list, char_limit=None, millis_limit=None):
 
 def parse_srt(srt_string, char_limit=None, millis_limit=None):
     """
-    Parses SRT formatted string into a list of subtitle dictionaries, 
+    Parses SRT or WEBVTT formatted string into a list of subtitle dictionaries,
     combining subtitles based on optional character count or milliseconds limits.
 
     Args:
-        srt_string (str): The SRT file content.
+        srt_string (str): The SRT or WEBVTT file content.
         char_limit (int, optional): Maximum number of characters for a combined caption.
         millis_limit (int, optional): Maximum duration in milliseconds for a combined caption.
 
@@ -102,31 +102,47 @@ def parse_srt(srt_string, char_limit=None, millis_limit=None):
         list: A list of dictionaries with combined subtitle data.
 
     Raises:
-        ValueError: If the SRT string is empty or incorrectly formatted.
+        ValueError: If the input string is empty or incorrectly formatted.
     """
     # Initialize an empty list to hold the subtitle data
     srt_list = []
 
     # Check if the provided string is empty and raise an error if so
     if not srt_string.strip():
-        raise ValueError("The SRT text provided is empty.")
+        raise ValueError("The input text provided is empty.")
 
-    # Split the SRT string into parts and iterate over each subtitle block
+    # Remove WEBVTT header if present
+    lines = srt_string.strip().split('\n')
+    if lines[0].startswith('WEBVTT'):
+        # Skip WEBVTT header and metadata lines
+        while lines and (lines[0].startswith('WEBVTT') or ': ' in lines[0] or not lines[0].strip()):
+            lines.pop(0)
+        srt_string = '\n'.join(lines)
+
+    # Split the string into parts and iterate over each subtitle block
+    current_index = 1
     for block in srt_string.split('\n\n'):
         if block.strip():  # Ignore empty blocks
             try:
                 # Split each block into lines
                 lines = block.split('\n')
-                # The first line should be the index
-                index = int(lines[0])
-                # The second line should be the timings
-                timing_line = lines[1]
-                timing_match = re.search(r'(\d+:\d+:\d+,\d+) --> (\d+:\d+:\d+,\d+)', timing_line)
+                
+                # Find the timing line (it contains ' --> ')
+                timing_line_idx = next((i for i, line in enumerate(lines) if ' --> ' in line), -1)
+                if timing_line_idx == -1:
+                    continue  # Skip blocks without timing information
+                
+                timing_line = lines[timing_line_idx]
+                timing_match = re.search(r'(\d+:\d+:\d+[,\.]\d+) --> (\d+:\d+:\d+[,\.]\d+)', timing_line)
                 if not timing_match:
-                    raise ValueError(f"Invalid timing format in block: {block}")
+                    continue  # Skip invalid timing formats
 
                 # Extract start and end times from the timing line
                 start_time_string, end_time_string = timing_match.groups()
+                # Replace '.' with ',' for WEBVTT format compatibility
+                start_time_string = start_time_string.replace('.', ',')
+                end_time_string = end_time_string.replace('.', ',')
+                
                 start_time = parse_time(start_time_string)
                 end_time = parse_time(end_time_string)
 
@@ -134,23 +150,21 @@ def parse_srt(srt_string, char_limit=None, millis_limit=None):
                 if start_time > end_time:
                     raise ValueError(f"Start time must be less than or equal to end time in block: {block}")
 
-                # The remaining lines are the subtitle content
-                content = '\n'.join(lines[2:]).strip()
+                # The remaining lines after the timing line are the subtitle content
+                content = '\n'.join(lines[timing_line_idx + 1:]).strip()
 
                 # Append the parsed subtitle to the list
                 srt_list.append({
-                    'index': index,
+                    'index': current_index,
                     'content': content,
                     'start': start_time,
                     'end': end_time
                 })
+                current_index += 1
+                
             except Exception as e:
-                # Log the exception details and the problematic block for easier debugging
-                # Note: You would typically use a logging library here instead of print
                 logging.error(f"Error parsing block: {block}\nException: {e}")
-                # Optionally, you could continue parsing the remaining blocks instead of raising an error
-                # For now, we'll raise the error to signal that something went wrong
-                raise ValueError(f"Error parsing SRT block: {e}")
+                raise ValueError(f"Error parsing block: {e}")
 
     # Combine the subtitles based on the specified character or milliseconds limits
     return combine_captions(srt_list, char_limit, millis_limit)
